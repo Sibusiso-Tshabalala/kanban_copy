@@ -181,16 +181,23 @@ if up is not None:
 # ------------- DnD Board UI -------------
 statuses = ["Backlog", "In Progress", "Blocked", "Done"]
 columns = []
-for status in ["Backlog", "Work In Progress", "Done"]:
-    subset = df[df["status"] == status].sort_values(
-        by=["sort_index", "priority", "due_date"], na_position="last"
-    )
-    items = []
-    for _, row in subset.iterrows():
-        items.append({
-            "id": int(row["id"]),
-            "title": f"{row['title']} (prio: {row['priority']}, due: {row['due_date']})"
-        })
+df["due_str"] = df["due_date"].fillna("").astype(str)
+
+df_sorted = df.sort_values(by=["status", "sort_index", "priority", "due_date"], na_position="last")
+
+for status in statuses:
+    subset = df_sorted[df_sorted["status"] == status]
+
+    items = [
+        {
+            "id": int(row_id),
+            "title": f"{title} (prio: {priority}, due: {due})"
+        }
+        for row_id, title, priority, due in zip(
+            subset["id"], subset["title"], subset["priority"], subset["due_str"]
+        )
+    ]
+    
     columns.append({"name": status, "items": items})
 
 st.subheader("Board")
@@ -210,21 +217,30 @@ for i, h in enumerate(statuses):
 
 
 if new_columns is not None and new_columns != columns:
+
+    updates = []
+    for col_idx, col in enumerate(new_columns):
+        status_name = statuses[col_idx]
+        for sort_index, item in enumerate(col["items"]):
+            updates.append({
+                "id": item["id"],
+                "status": status_to_enum(status_name),
+                "sort_index": sort_index
+            })
+
+    
     with get_session() as db:
-        for col_idx, items in enumerate(new_columns):
-            for order, label in enumerate(items):
-                # parse id from "#<id> — title"
-                try:
-                    id_str = label.split("—")[0].strip().lstrip("#")
-                    task_id = int(id_str)
-                except Exception:
-                    continue
-                t = db.get(Task, task_id)
-                if t is None:
-                    continue
-                t.status = status_to_enum(statuses[col_idx])
-                t.sort_index = order
+        task_ids = [u["id"] for u in updates]
+        tasks = db.execute(select(Task).where(Task.id.in_(task_ids))).scalars().all()
+        task_dict = {t.id: t for t in tasks}
+
+        for u in updates:
+            t = task_dict.get(u["id"])
+            if t:
+                t.status = u["status"]
+                t.sort_index = u["sort_index"]
                 db.add(t)
+
         db.commit()
     st.experimental_rerun()
 

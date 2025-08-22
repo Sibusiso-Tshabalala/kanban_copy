@@ -184,19 +184,23 @@ columns = []
 df["due_str"] = df["due_date"].fillna("").astype(str)
 
 df_sorted = df.sort_values(by=["status", "sort_index", "priority", "due_date"], na_position="last")
+for col, status in zip(columns, statuses):
+    with col:
+        st.subheader(status)
+        subset = df[df["status"] == status]
+        for _, row in subset.iterrows():
+            st.markdown(f"**{row['title']}**\n- Assignee: {row['assignee']}\n- Priority: {row['priority']}\n- Due: {row['due_str']}")
 
 for status in statuses:
     subset = df_sorted[df_sorted["status"] == status]
 
     items = [
-        {
-            "id": int(row_id),
-            "title": f"{title} (prio: {priority}, due: {due})"
-        }
-        for row_id, title, priority, due in zip(
-            subset["id"], subset["title"], subset["priority"], subset["due_str"]
-        )
-    ]
+    f"{title} (prio: {priority}, due: {due})"  # just the string
+    for row_id, title, priority, due in zip(
+        subset["id"], subset["title"], subset["priority"], subset["due_str"]
+    )
+]
+    
     
     columns.append({"name": status, "items": items})
 

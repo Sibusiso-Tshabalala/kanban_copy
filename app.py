@@ -178,6 +178,52 @@ if up is not None:
     except Exception as e:
         st.error(f"Import failed: {e}")
 
+view_mode = st.radio("View mode", ["Kanban Board", "Column View"], index=0)
+if view_mode == "Kanban Board":
+    # ---- Existing Kanban board code ----
+    statuses = ["Backlog", "In Progress", "Blocked", "Done"]
+    columns = []
+    df["due_str"] = df["due_date"].fillna("").astype(str)
+
+    df_sorted = df.sort_values(by=["status", "sort_index", "priority", "due_date"], na_position="last")
+    for col, status in zip(columns, statuses):
+        with col:
+            st.subheader(status)
+            subset = df[df["status"] == status]
+            for _, row in subset.iterrows():
+                st.markdown(
+                    f"**{row['title']}**\n"
+                    f"- Assignee: {row['assignee']}\n"
+                    f"- Priority: {row['priority']}\n"
+                    f"- Due: {row['due_str']}\n"
+                    f"- New Column: {row['new_column']}"
+                )
+
+    for status in statuses:
+        subset = df_sorted[df_sorted["status"] == status]
+        items = [
+            f"{title} (prio: {priority}, due: {due})"
+            for row_id, title, priority, due in zip(
+                subset["id"], subset["title"], subset["priority"], subset["due_str"]
+            )
+        ]
+        columns.append({"name": status, "items": items})
+
+    st.subheader("Board")
+    new_columns = sort_items(columns, multi_containers=True, direction="horizontal", key="kanban")
+
+    header_cols = st.columns(4)
+    for i, h in enumerate(statuses):
+        with header_cols[i]:
+            st.markdown(f"**{h}**")
+
+else:
+    # ---- Column / Table view ----
+    st.subheader("All Tasks (Column View)")
+    st.dataframe(df.drop(columns=["sort_index"]))  # optionally drop sort_index column
+
+
+
 # ------------- DnD Board UI -------------
 statuses = ["Backlog", "In Progress", "Blocked", "Done"]
 columns = []
@@ -210,7 +256,7 @@ new_columns = sort_items(
     columns,
     multi_containers=True,
     direction="horizontal",
-    key="kanban"
+    key=f"kanban_{view_mode}"
 )
 
 

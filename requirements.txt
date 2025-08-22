@@ -1,0 +1,5 @@
+streamlit>=1.36.0
+SQLAlchemy>=2.0.30
+pandas>=2.2.2
+python-dateutil>=2.9.0.post0
+streamlit-sortables>=0.2.0

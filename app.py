@@ -181,29 +181,34 @@ if up is not None:
 # ------------- DnD Board UI -------------
 statuses = ["Backlog", "In Progress", "Blocked", "Done"]
 columns = []
-for s in statuses:
-    subset = df[df["status"] == s].sort_values(by=["sort_index","priority","due_date"], na_position="last")
-    # Each item label includes ID so we can map back after dropping
-    items = [f"#{row.id} — {row.title}" for _, row in subset.iterrows()]
-    columns.append(items)
+for status in ["Backlog", "Work In Progress", "Done"]:
+    subset = df[df["status"] == status].sort_values(
+        by=["sort_index", "priority", "due_date"], na_position="last"
+    )
+    items = []
+    for _, row in subset.iterrows():
+        items.append({
+            "id": int(row["id"]),
+            "title": f"{row['title']} (prio: {row['priority']}, due: {row['due_date']})"
+        })
+    columns.append({"name": status, "items": items})
 
 st.subheader("Board")
-# Render a 4-column sortable Kanban
+
 new_columns = sort_items(
     columns,
-    direction="horizontal",
     multi_containers=True,
-    key="kanban_sortable",
-    # The component shows lists; we'll style by Streamlit container headers
+    direction="horizontal",
+    key="kanban"
 )
 
-# Display column headers above the DnD component
+
 header_cols = st.columns(4)
 for i, h in enumerate(statuses):
     with header_cols[i]:
         st.markdown(f"**{h}**")
 
-# When user reorders or moves items, persist to DB
+
 if new_columns is not None and new_columns != columns:
     with get_session() as db:
         for col_idx, items in enumerate(new_columns):
@@ -223,11 +228,11 @@ if new_columns is not None and new_columns != columns:
         db.commit()
     st.experimental_rerun()
 
-# ------------- Detail/Edit Pane -------------
+
 st.markdown("---")
 st.subheader("Edit / Delete Selected Task")
 
-# Build a flat list of choices
+
 choices = [f"#{r.id} — {r.title}" for _, r in df.sort_values(by=["status","sort_index"]).iterrows()]
 selected = st.selectbox("Select a task", [""] + choices, index=0)
 

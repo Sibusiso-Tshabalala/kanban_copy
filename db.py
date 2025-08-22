@@ -3,7 +3,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.sql import func
 import enum
 import os
-
+from sqlalchemy import text
 # ---- Database URL ----
 DB_PATH = os.environ.get("KANBAN_DB_PATH", "kanban.db")
 SQLALCHEMY_DATABASE_URI = f"sqlite:///{DB_PATH}"
@@ -37,10 +37,11 @@ class Task(Base):
 
 def init_db():
     # Create tables
+    
     Base.metadata.create_all(bind=engine)
     # Lightweight migration: ensure 'sort_index' exists
     with engine.connect() as conn:
-        cols = conn.execute("PRAGMA table_info(tasks);").fetchall()
+        cols = conn.execute(text("PRAGMA table_info(tasks);")).fetchall()
         names = [c[1] for c in cols]
         if "sort_index" not in names:
             conn.execute("ALTER TABLE tasks ADD COLUMN sort_index INTEGER DEFAULT 0;")
